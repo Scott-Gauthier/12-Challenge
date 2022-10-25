@@ -11,26 +11,32 @@ CREATE DATABASE employee_tracker;
 
 USE employee_tracker;
 
-CREATE --DROP
+CREATE -- DROP
 Table department(
-     [id] [int] Autonumber IDENTITY(1, 1) NOT NULL
-    ,[name] [nvarchar](30) NOT NULL
+     id int AUTO_INCREMENT NOT NULL
+    ,name nvarchar(30) NOT NULL
+    ,PRIMARY KEY (id)
 );
-CREATE --DROP
-Table [role](
-     [id] [int] Autonumber IDENTITY(1, 1) NOT NULL
-    ,[title] [nvarchar](30) NOT NULL
-    ,[salary] [decimal] NOT NULL
-    ,[department_id] [int] NOT NULL
+CREATE -- DROP
+Table role(
+     id int AUTO_INCREMENT NOT NULL
+    ,title nvarchar(30) NOT NULL
+    ,salary decimal NOT NULL
+    ,department_id int
+    ,PRIMARY KEY (id)
+    ,FOREIGN KEY (department_id)
+     REFERENCES department(id)
+     ON DELETE SET NULL
 );
-CREATE --DROP
+CREATE -- DROP
 Table employee(
-     [id] [int] Autonumber IDENTITY(1, 1) NOT NULL
-    ,[first_name] [nvarchar](30) NOT NULL
-    ,[last_name] [nvarchar](30) NOT NULL
-    ,[role_id] [nvarchar](30) NOT NULL
-    ,[manager_id] [nvarchar](30) NOT NULL
+     id int AUTO_INCREMENT NOT NULL
+    ,first_name nvarchar(30) NOT NULL
+    ,last_name nvarchar(30) NOT NULL
+    ,role_id int NOT NULL
+    ,manager_id int
+    ,PRIMARY KEY (id)
 );
-Alter Table department 
- Add Constraint pkDepartment 
-  Primary Key (id);
+Alter Table employee 
+ Add Constraint pkemployee 
+  Foreign Key (manager_id) References employee(id);

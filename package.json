@@ -1,0 +1,23 @@
+{
+  "name": "sql-employee-tracker",
+  "version": "1.0.0",
+  "description": "A way to view and manage the departments, roles, and employees in a company to organize and plan the business.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Scott-Gauthier/12-Challenge.git"
+  },
+  "author": "Scott Gauthier",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Scott-Gauthier/12-Challenge/issues"
+  },
+  "homepage": "https://github.com/Scott-Gauthier/12-Challenge#readme",
+  "dependencies": {
+    "inquirer": "^8.2.4",
+    "mysql2": "^2.3.3"
+  }
+}

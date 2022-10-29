@@ -12,19 +12,3 @@ const db = mysql.createConnection(
     console.log(`Connected to the employee_tracker database.`)
 );
 
-const viewdepartment = async () => {
-    var data = await db.promise().query('SELECT * FROM department')
-    //console.log(data)
-    return data[0];
-}
-db.connect(async function (err) {
-    console.log(`Connected to SQL!`);
-    data = await viewdepartment();
-    dataFormatted = data.map((item) => (
-        {id: item.id,
-         name: item.name
-        }));
-    console.log(dataFormatted);
-});
-
-

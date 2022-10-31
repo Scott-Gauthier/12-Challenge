@@ -34,6 +34,14 @@ where
     a.id <> m.id
     or a.manager_id is null;
 
+SELECT
+    CONCAT(role.title,'-',department.name) AS name,
+    role.id as value
+FROM role
+Join department
+on role.department_id = department.id
+
+
 INSERT INTO
     produce (id, name)
 VALUES

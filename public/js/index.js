@@ -64,6 +64,11 @@ function askquestions() {
                 { name: 'add an employee', value: 'addemployee', },
                 { name: 'update an employee role', value: 'updateemployee', },
                 { name: 'department utilized budget', value: 'departmentutilizedbudget', },
+
+                { name: 'delete a department', value: 'deletedepartment', },
+                { name: 'delete a role', value: 'deleteroles', },
+                { name: 'delete an employee', value: 'deleteemployees', },
+
                 { name: 'Exit the application', value: 'exit', },
             ],
         }
@@ -83,7 +88,13 @@ function askquestions() {
                 role.id as value
             FROM role
             Join department
-            on role.department_id = department.id;`;
+            on role.department_id = department.id
+            union all
+            SELECT
+                CONCAT(role.title,'- null') AS name,
+                role.id as value
+            FROM role
+            where role.department_id is null`;
     sql3 = `SELECT
                 department.name AS name,
                 department.id as value
@@ -106,6 +117,7 @@ function askquestions() {
             queryChoicesResults3.push(row);
         })
     };
+
     let combinedArray = [];
 
     const employeeUpdatePrompt = [
@@ -124,7 +136,55 @@ function askquestions() {
             choices: queryChoicesResults1
         },
     ];
+    const employeeDeletePrompt = [
+        //really question is needed to make the next question work. Doesn't work otherwise....
+        {
+            type: 'confirm',
+            message: 'Are you sure?',
+            name: 'confirmquestion',
+            default: false
+        },
+        {
+            type: 'list',
+            message: `Which employee would you like to delete?`,
+            name: 'delete_employee',
+            //default: ' ',
+            choices: queryChoicesResults1
+        },
+    ];
+    const roleDeletePrompt = [
+        //really question is needed to make the next question work. Doesn't work otherwise....
+        {
+            type: 'confirm',
+            message: 'Are you sure?',
+            name: 'confirmquestion',
+            default: false
+        },
+        {
+            type: 'list',
+            message: `Which role would you like to delete?`,
+            name: 'delete_role',
+            //default: ' ',
+            choices: queryChoicesResults2
+        },
+    ];
 
+    const departmentDeletePrompt = [
+        //really question is needed to make the next question work. Doesn't work otherwise....
+        {
+            type: 'confirm',
+            message: 'Are you sure?',
+            name: 'confirmquestion',
+            default: false
+        },
+        {
+            type: 'list',
+            message: `Which department would you like to delete?`,
+            name: 'delete_department',
+            //default: ' ',
+            choices: queryChoicesResults3
+        },
+    ];
     const employeePrompt = [
         {
             type: 'input',
@@ -178,25 +238,26 @@ function askquestions() {
         }
     ]
 
-    function ifClause({ err, res }, value, name) {
+    function ifClause({ err, res }, value, name, action) {
         if (res) {
-            console.table(`${name}  ${value[0].name} has been added to the database!`);
+            console.log(`${name}  ${value[0].name} has been ${action} the database!`);
         } else if (err.code == 'ER_DUP_ENTRY') {
-            console.table(`${value[0].name} already exists! Please use the ${value[0].name} ${name} that already exists.`);
+            console.log(`${value[0].name} already exists! Please use the ${value[0].name} ${name} that already exists.`);
         } else {
             console.log('Wow you really broke things!');
         }
-        setTimeout(() => {
-            askquestions()
-        }, 1);
     }
 
-    function sqlMultiParameters(sql, parameters, selected) {
-        db.query(sql, [parameters[0].name, parameters[0].filter2, parameters[0].filter3, parameters[0].filter4], (err, res) => {
+    function sqlMultiParameters(sql, parameters, selected, action) {
+        db.query(sql, [parameters[0].name, parameters[0].filter2, parameters[0].filter3, parameters[0].filter4], async (err, res) => {
             if (selected === 'single') {
-                console.table(res);
+                setTimeout(() => {
+                    console.table(res);
+                    askquestions();
+                }, 10);
             } else {
-                ifClause({ err, res }, parameters, selected);
+                ifClause({ err, res }, parameters, selected, action);
+                askquestions();
             }
         });
     };
@@ -211,10 +272,7 @@ function askquestions() {
                             name AS 'Name',
                             id AS 'Department Id'
                         FROM department;`;
-                    sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                    setTimeout(() => {
-                        askquestions()
-                    }, 1);
+                    sqlMultiParameters(sql,[{ name: 'single query' }], 'single');
                     break;
                 case 'viewroles':
                     sql = `
@@ -226,11 +284,15 @@ function askquestions() {
                         FROM role
                         join department
                         on role.department_id = department.id
-                        order by role.id;`;
+                        union all
+                        SELECT
+                            role.id AS 'Role Id',
+                            title AS 'Title',
+                            'null' AS 'Department',
+                            FORMAT(salary,2) AS 'Salary'
+                        FROM role
+                        where role.department_id is null;`;
                     sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                    setTimeout(() => {
-                        askquestions()
-                    }, 1);
                     break;
                 case 'viewemployees':
                     sql = `
@@ -247,37 +309,63 @@ function askquestions() {
                         on role.id = a.role_id
                         Join department
                         on role.department_id = department.id
-                        Left Outer Join employee as m
+                        left outer Join employee as m
                         on a.manager_id = m.id
-                        where a.id <> m.id or a.manager_id is null;`;
+                        where a.id <> m.id or a.manager_id is null
+                        union all
+                        SELECT
+                            a.id AS 'Employee Id',
+                            a.first_name AS 'First Name',
+                            a.last_name AS 'Last Name',
+                            title AS 'Title',
+                            'null' AS "Department",
+                            FORMAT(salary,2) AS 'Salary',
+                            IFNULL(CONCAT(m.first_name,' ',m.last_name),'The Board') AS 'Manager'
+                        FROM employee as a
+                        JOIN role
+                        on role.id = a.role_id
+                        left outer Join employee as m
+                        on a.manager_id = m.id
+                        where role.department_id is null and (a.id <> m.id or a.manager_id is null);`;
                     sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                    setTimeout(() => {
-                        askquestions()
-                    }, 1);
                     break;
                 case 'viewemployeesbymanager':
-                    sql = `SELECT
+                    sql = `
+                        SELECT *
+                        FROM (
+                        SELECT
                             IFNULL(m.id,0) AS 'Manager Id',
-                            IFNULL(CONCAT(m.first_name, ' ', m.last_name), 'The Board') AS 'Manager',
+                            IFNULL(CONCAT(m.first_name,' ',m.last_name),'The Board') AS 'Manager',
                             a.first_name AS 'First Name',
                             a.last_name AS 'Last Name',
                             title AS 'Title',
                             department.name AS "Department",
-                            FORMAT(salary, 2) AS 'Salary'
-                        FROM
-                            employee as a
-                            JOIN role on role.id = a.id
-                            Join department on role.department_id = department.id
-                            Left Outer Join employee as m on a.manager_id = m.id
-                        where
-                            a.id <> m.id
-                            or a.manager_id is null
-                        order by
-                            a.manager_id;`;
+                            FORMAT(salary,2) AS 'Salary'
+                        FROM employee as a
+                        JOIN role
+                        on role.id = a.role_id
+                        Join department
+                        on role.department_id = department.id
+                        left outer Join employee as m
+                        on a.manager_id = m.id
+                        where a.id <> m.id or a.manager_id is null
+                        union all
+                        SELECT
+                            IFNULL(m.id,0) AS 'Manager Id',
+                            IFNULL(CONCAT(m.first_name,' ',m.last_name),'The Board') AS 'Manager',
+                            a.first_name AS 'First Name',
+                            a.last_name AS 'Last Name',
+                            title AS 'Title',
+                            'null' AS "Department",
+                            FORMAT(salary,2) AS 'Salary'
+                        FROM employee as a
+                        JOIN role
+                        on role.id = a.role_id
+                        left outer Join employee as m
+                        on a.manager_id = m.id
+                        where role.department_id is null and (a.id <> m.id or a.manager_id is null)) t
+                        order by 'Manager Id';`;
                     sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                    setTimeout(() => {
-                        askquestions()
-                    }, 1);
                     break;
                 case 'viewemployeesbydepartment':
                     sql = `SELECT
@@ -294,9 +382,6 @@ function askquestions() {
                         order by
                             department.id, a.id;`;
                     sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                    setTimeout(() => {
-                        askquestions()
-                    }, 1);
                     break;
                 case 'adddepartment':
                     inquirer
@@ -304,7 +389,7 @@ function askquestions() {
                         .then((response) => {
                             const sql = `INSERT INTO department (name) VALUES (?)`;
                             const data = [response].map((item) => ({ name: item.department }));
-                            sqlMultiParameters(sql, data, 'department');
+                            sqlMultiParameters(sql, data, 'department', 'added to');
                         });
                     break;
                 case 'addrole':
@@ -314,7 +399,7 @@ function askquestions() {
                         .then((response) => {
                             const sql = `INSERT INTO role (title,salary,department_id) VALUES (?,?,?)`;
                             const data = [response].map((item) => ({ name: item.role_name, filter2: item.role_salary, filter3: item.role_department }));
-                            sqlMultiParameters(sql, data, 'role');
+                            sqlMultiParameters(sql, data, 'role', 'added to');
                         });
                     break;
                 case 'addemployee':
@@ -325,7 +410,7 @@ function askquestions() {
                         .then((response) => {
                             const sql = `INSERT INTO employee (first_name,last_name,role_id,manager_id) VALUES (?,?,?,?)`;
                             const data = [response].map((item) => ({ name: item.employee_first_name, filter2: item.employee_last_name, filter3: item.employee_role, filter4: item.employee_manager }));
-                            sqlMultiParameters(sql, data, 'employee');
+                            sqlMultiParameters(sql, data, 'employee', 'added to');
                         });
                     break;
                 case 'updateemployee':
@@ -356,17 +441,18 @@ function askquestions() {
                                     } else {
                                         console.log('Wow you really broke things!');
                                     }
+                                    askquestions();
                                 });
                             } else {
                                 console.log('No record added.')
+                                setTimeout(() => {
+                                    askquestions();
+                                }, 1);
                             };
-                            setTimeout(() => {
-                                askquestions()
-                            }, 1);
                         });
                     break;
-                    case 'departmentutilizedbudget':
-                        sql = `
+                case 'departmentutilizedbudget':
+                    sql = `
                             SELECT
                                 department.name AS "Department",
                                 FORMAT(sum(salary),2) AS 'Salary'
@@ -376,11 +462,38 @@ function askquestions() {
                             Join department
                             on role.department_id = department.id
                             group by department;`;
-                        sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
-                        setTimeout(() => {
-                            askquestions()
-                        }, 1);
-                        break;
+                    sqlMultiParameters(sql, [{ name: 'single query' }], 'single');
+                    break;
+                case 'deletedepartment':
+                    queryChoice3();
+                    inquirer
+                        .prompt(departmentDeletePrompt)
+                        .then((response) => {
+                            const sql = `DELETE FROM department WHERE id = (?);`;
+                            const data = [response].map((item) => ({ name: item.department }));
+                            sqlMultiParameters(sql, [{ name: response.delete_department }], 'department', 'delete from');
+                        });
+                    break;
+                case 'deleteroles':
+                    queryChoice2();
+                    inquirer
+                        .prompt(roleDeletePrompt)
+                        .then((response) => {
+                            const sql = `DELETE FROM role WHERE id = (?);`;
+                            const data = [response].map((item) => ({ name: item.department }));
+                            sqlMultiParameters(sql, [{ name: response.delete_role }], 'role', 'delete from');
+                        });
+                    break;
+                case 'deleteemployees':
+                    queryChoice1();
+                    inquirer
+                        .prompt(employeeDeletePrompt)
+                        .then((response) => {
+                            const sql = `DELETE FROM employee WHERE id = (?);`;
+                            const data = [response].map((item) => ({ name: item.department }));
+                            sqlMultiParameters(sql, [{ name: response.delete_employee }], 'employees', 'delete from');
+                        });
+                    break;
                 default:
                     db.end();
                     break;

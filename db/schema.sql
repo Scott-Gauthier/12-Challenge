@@ -43,8 +43,7 @@ Table employee(
 Alter Table
      employee
 Add
-     Constraint pkemployee Foreign Key (manager_id) References employee(id)
-     ON UPDATE CASCADE;
+     Constraint pkemployee Foreign Key (manager_id) References employee(id);
 
 Alter Table
      employee
